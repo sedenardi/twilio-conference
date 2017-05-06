@@ -1,57 +1,48 @@
-const Koa = require('koa');
-const app = new Koa();
+const express = require('express');
+const VoiceResponse = require('twilio').twiml.VoiceResponse;
+const urlencoded = require('body-parser').urlencoded;
 
-const xmlRouter = require('koa-router')();
 const conferences = require('./conferences');
 
-xmlRouter.use((ctx, next) => {
-  ctx.type = 'text/xml';
+const app = express();
+app.use(urlencoded({extended: false}));
+app.use((request, response, next) => {
+  response.type('text/xml');
   next();
+})
+
+app.post('/voice', (request, response) => {
+  const twiml = new VoiceResponse();
+  twiml.say('Welcome to the conference system.', { voice: 'alice' });
+  twiml.redirect('/gather');
+  response.send(twiml.toString());
 });
 
-xmlRouter.get('/Welcome', (ctx) => {
-  ctx.body = `<?xml version="1.0" encoding="UTF-8"?>
-    <Response>
-      <Say voice="alice">Welcome to the conferencing system.</Say>
-      <Redirect method="GET">/GatherAccessCode</Redirect>
-    </Response>`;
+app.post('/gather', (request, response) => {
+  const twiml = new VoiceResponse();
+  const gather = twiml.gather({
+    timeout: '10',
+    finishOnKey: '#',
+    action: '/join'
+  });
+  gather.say('Please enter your access code.', { voice: 'alice' });
+  twiml.redirect('/gather');
+  response.send(twiml.toString());
 });
 
-xmlRouter.get('/GatherAccessCode', (ctx) => {
-  ctx.body = `<?xml version="1.0" encoding="UTF-8"?>
-    <Response>
-      <Gather
-        timeout="10"
-        finishOnKey="#"
-        action="/JoinConference"
-        method="GET">
-        <Say voice="alice">Please enter your access code.</Say>
-      </Gather>
-      <Redirect method="GET">/GatherAccessCode</Redirect>
-    </Response>`;
-});
-
-xmlRouter.get('/JoinConference', (ctx) => {
-  const conference = conferences.getConferenceByCode(ctx.query.Digits);
+app.post('/join', (request, response) => {
+  const twiml = new VoiceResponse();
+  const conference = conferences.getConferenceByCode(request.body.Digits);
   if (conference) {
-    ctx.body = `<?xml version="1.0" encoding="UTF-8"?>
-      <Response>
-        <Say voice="alice">You are now entering the conference.</Say>
-        <Dial>
-          <Conference>
-            ${conference}
-          </Conference>
-        </Dial>
-      </Response>`;
+    twiml.say('You are now entering the conference.', { voice: 'alice' });
+    const dial = twiml.dial();
+    dial.conference(conference);
   } else {
-    ctx.body = `<?xml version="1.0" encoding="UTF-8"?>
-      <Response>
-        <Say voice="alice">The access code you entered is incorrect.</Say>
-        <Redirect method="GET">/GatherAccessCode</Redirect>
-      </Response>`;
+    twiml.say('The access code you entered is incorrect.', { voice: 'alice' });
+    twiml.redirect('/gather');
   }
+  response.send(twiml.toString());
 });
 
-app.use(xmlRouter.routes()).use(xmlRouter.allowedMethods());
-
-app.listen(3003);
+console.log('Conference system app HTTP server running at http://127.0.0.1:3000');
+app.listen(3000);
