@@ -3,10 +3,6 @@ const accessCodes = {
   456: 'conference 2'
 };
 
-const getConferenceByCode = function(code) {
-  return code ? accessCodes[code] : null;
-};
-
-module.exports = {
-  getConferenceByCode
+module.exports = function(code) {
+  return accessCodes[code];
 };

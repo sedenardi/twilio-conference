@@ -32,7 +32,7 @@ app.post('/gather', (request, response) => {
 
 app.post('/join', (request, response) => {
   const twiml = new VoiceResponse();
-  const conference = conferences.getConferenceByCode(request.body.Digits);
+  const conference = conferences(request.body.Digits);
   if (conference) {
     twiml.say('You are now entering the conference.', { voice: 'alice' });
     const dial = twiml.dial();
